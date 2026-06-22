@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Fixture projects are loaded by MSBuildWorkspace at test time; they are not part of
+         the main solution. Disable code-quality strictness so test fixtures don't have to
+         pass the main repo's gates. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Prevent these fixture restores from leaking the main repo's central package
+         management or audit settings. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

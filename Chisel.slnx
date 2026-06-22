@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Chisel.Cli/Chisel.Cli.csproj" />
+    <Project Path="src/Chisel.Core/Chisel.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Chisel.Core.Tests/Chisel.Core.Tests.csproj" />
+  </Folder>
+</Solution>

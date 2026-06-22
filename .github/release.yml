@@ -1,0 +1,16 @@
+# Categories for GitHub's auto-generated release notes (used by `gh release create
+# --generate-notes` in the Release workflow). PRs are bucketed by their labels.
+changelog:
+  exclude:
+    labels: [ignore-for-release, skip-changelog]
+  categories:
+    - title: Features
+      labels: [enhancement, feature]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Documentation
+      labels: [documentation, docs]
+    - title: Maintenance
+      labels: [chore, dependencies, refactor]
+    - title: Other Changes
+      labels: ['*']

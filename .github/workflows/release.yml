@@ -1,0 +1,179 @@
+name: Release
+
+# Trigger on a CalVer tag push (e.g. 2026.2.624 — YEAR.QUARTER.MMDD, the Bennewitz.Ninja.
+# AutoVersioning scheme this repo uses), or run manually with an explicit version. The tag IS
+# the release/package version. Ships TWO artifacts: the NuGet tool package (pushed to NuGet.org)
+# and self-contained per-RID binaries attached to the GitHub Release.
+on:
+  push:
+    tags:
+      # CalVer: digit-led and dotted, e.g. 2026.2.624 or 2026.2.624.1229. A leading 'v' is
+      # tolerated but not required (CalVer tags are normally un-prefixed).
+      - '[0-9]*.*'
+      - 'v[0-9]*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'CalVer version, e.g. 2026.2.624 (YEAR.QUARTER.MMDD)'
+        required: true
+
+permissions:
+  contents: write          # create the GitHub Release + tag
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  # Resolve the version once; every downstream job reads these outputs.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          # The release/package version IS the tag (CalVer, e.g. 2026.2.624). Keep the LITERAL tag
+          # for the GitHub Release (so we don't mint a second, differently-prefixed tag); strip an
+          # optional leading 'v' only for the NuGet/package version, which can't carry one.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.version }}" ]]; then
+            RAW="${{ inputs.version }}"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            RAW="${GITHUB_REF_NAME}"
+          else
+            echo "::error::not a tag push and no 'version' input — cannot resolve a version."; exit 1
+          fi
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$RAW"         >> "$GITHUB_OUTPUT"
+          # A hyphen denotes a pre-release (e.g. 2026.2.624-rc.1); plain CalVer is a full release.
+          if [[ "${RAW#v}" == *-* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
+          echo "Resolved version=${RAW#v} (tag $RAW)"
+
+  # Test gate — fail-fast so one platform failing stops the release immediately.
+  test:
+    name: Test gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Chisel.slnx
+      - run: dotnet build Chisel.slnx --no-restore -c Debug
+      - name: Restore & build test fixtures
+        shell: pwsh
+        run: ./build/restore-test-fixtures.ps1
+      - run: dotnet test Chisel.slnx --no-build -c Debug
+
+  # The NuGet tool package — the primary, recommended distribution (dotnet tool install).
+  pack:
+    name: Pack NuGet tool
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Pack (Release)
+        # Version → the NuGet package version (the tag). PublicVersion → recorded by AutoVersioning
+        # as assembly metadata so the binary traces back to this release; the assembly's own CalVer
+        # file-version is still stamped from build time by the generator.
+        run: >
+          dotnet pack src/Chisel.Cli/Chisel.Cli.csproj -c Release
+          -p:Version=${{ needs.version.outputs.version }}
+          -p:PublicVersion=${{ needs.version.outputs.version }}
+          -p:ContinuousIntegrationBuild=true
+          -o ./nupkg
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nupkg
+          path: ./nupkg/*.nupkg
+          if-no-files-found: error
+          retention-days: 1
+
+  # Self-contained binaries — one job per native host so each RID builds on its own arch.
+  binaries:
+    name: Binaries (${{ matrix.target.os }})
+    needs: [version, test]
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: windows-latest, rids: 'win-x64,win-arm64',     ext: zip }
+          - { os: ubuntu-latest,  rids: 'linux-x64,linux-arm64', ext: tar.gz }
+          - { os: macos-latest,   rids: 'osx-x64,osx-arm64',     ext: tar.gz }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      # `& 'script' -Rids a,b` lets pwsh's parser split the comma-list into a string[]
+      # natively — do NOT wrap in `pwsh script ...` or the list arrives as one argv string.
+      - name: Publish ${{ matrix.target.rids }}
+        shell: pwsh
+        run: "& './build/publish.ps1' -Rids ${{ matrix.target.rids }} -Version ${{ needs.version.outputs.version }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.target.os }}
+          path: dist/*.${{ matrix.target.ext }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # Assemble everything: a GitHub Release with all assets, then push the package to NuGet.org.
+  release:
+    name: GitHub Release + NuGet push
+    needs: [version, pack, binaries]
+    runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true        # flatten nupkg + dist-* into ./artifacts
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          ASSETS=(artifacts/*.nupkg artifacts/*.zip artifacts/*.tar.gz)
+          if [[ ${#ASSETS[@]} -eq 0 ]]; then
+            echo "::error::no assets matched — refusing to publish an empty release."; exit 1
+          fi
+          printf 'Asset: %s\n' "${ASSETS[@]}"
+          FLAGS=(--generate-notes)
+          if [[ "${{ needs.version.outputs.prerelease }}" == "true" ]]; then FLAGS+=(--prerelease); fi
+          gh release create "${{ needs.version.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "chisel ${{ needs.version.outputs.version }}" \
+            "${FLAGS[@]}" "${ASSETS[@]}"
+
+      # No-op (with a notice) until a NUGET_API_KEY secret is configured, so the rest of
+      # the release still succeeds before NuGet publishing is set up.
+      - name: Push to NuGet.org
+        if: ${{ env.NUGET_API_KEY != '' }}
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "$NUGET_API_KEY"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: NuGet push skipped (no secret)
+        if: ${{ env.NUGET_API_KEY == '' }}
+        run: echo "::notice::NUGET_API_KEY secret not set — skipped pushing to NuGet.org. The .nupkg is attached to the GitHub Release."

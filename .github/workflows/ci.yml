@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+# Cancel a superseded run the moment a new commit lands on the same branch/PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  build-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false          # let every platform report even if one fails
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json   # pin the exact SDK from global.json (10.0.300)
+
+      - name: Restore
+        run: dotnet restore Chisel.slnx
+
+      - name: Build (Debug)
+        run: dotnet build Chisel.slnx --no-restore -c Debug
+
+      # The xUnit suite loads the solutions under tests/Fixtures/ at run time. They are NOT
+      # part of Chisel.slnx, so nothing above restores them — and the SourceGen fixture's
+      # generator assembly must be built before its tests can discover generated symbols.
+      - name: Restore & build test fixtures
+        shell: pwsh
+        run: ./build/restore-test-fixtures.ps1
+
+      - name: Test
+        run: >
+          dotnet test Chisel.slnx --no-build -c Debug
+          --logger "trx;LogFileName=results.trx"
+          --results-directory ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: ./test-results/*.trx
+          retention-days: 14
+          if-no-files-found: ignore
+
+  pack-tool:
+    name: Pack & install smoke-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Prove the .NET tool packs and actually installs/runs — catches packaging breaks
+      # (missing metadata, ToolCommandName drift) on every PR, not just at release time.
+      - name: Pack (Release)
+        run: dotnet pack src/Chisel.Cli/Chisel.Cli.csproj -c Release -o ./nupkg
+
+      - name: Install as a global tool
+        run: dotnet tool install --global --add-source ./nupkg Bennewitz.Ninja.Chisel
+
+      - name: Smoke-check (dotnet chisel --version)
+        run: dotnet chisel --version

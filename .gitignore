@@ -480,3 +480,10 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# ── chisel ───────────────────────────────────────────────────────────────────
+# Local release output from build/publish.ps1 (per-RID self-contained archives).
+# (*.nupkg and *.tar.gz are already ignored above; /dist/ also covers win *.zip.)
+/dist/
+# Local `dotnet pack` output (README / CI smoke-check use -o ./nupkg).
+/nupkg/

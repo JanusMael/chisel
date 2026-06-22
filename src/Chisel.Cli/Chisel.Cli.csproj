@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Bennewitz.Ninja.Chisel.Cli</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RollForward>LatestMajor</RollForward>
+    <AssemblyName>chisel</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Packaged as a dotnet tool. ToolCommandName 'dotnet-chisel' makes `dotnet chisel …` work. -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dotnet-chisel</ToolCommandName>
+    <PackageId>Bennewitz.Ninja.Chisel</PackageId>
+    <!-- Release builds set the package version from the CalVer tag (release.yml runs
+         `dotnet pack -p:Version=<tag>`); this placeholder is used only for local/dev packs.
+         The assembly's own version is the CalVer stamped by Bennewitz.Ninja.AutoVersioning. -->
+    <Version>0.0.0-dev</Version>
+    <Authors>Bennewitz.Ninja</Authors>
+    <Description>Chisel — collect the C# files needed to compile a given type, across a solution.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright © 2026 Brian Bennewitz</Copyright>
+    <PackageProjectUrl>https://github.com/JanusMael/chisel</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JanusMael/chisel.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>roslyn;msbuild;code-slicing;dependency-analysis;csharp;dotnet-tool;cli</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+  </PropertyGroup>
+
+  <!-- Pack the repo-root README + icon into the package (referenced by name in the metadata above). -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chisel.Core\Chisel.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chisel.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="4.3.1" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+</Project>

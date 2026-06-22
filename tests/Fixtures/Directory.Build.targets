@@ -1,0 +1,3 @@
+<Project>
+  <!-- Empty marker so fixtures don't inherit any outer Directory.Build.targets surprises. -->
+</Project>

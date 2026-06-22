@@ -1,0 +1,71 @@
+<Project>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- Allow restoring Windows targeting packs on non-Windows hosts. -->
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    </PropertyGroup>
+    
+    <PropertyGroup>
+        <!-- Turn the generator ON for the consuming projects -->
+        <GenerateAutoVersionedAssemblyInfo>true</GenerateAutoVersionedAssemblyInfo>
+
+        <!-- Company and product names; consumed by the source generator at build time -->
+        <AssemblyCompany>Bennewitz.Ninja</AssemblyCompany>
+        <AssemblyProduct>Chisel</AssemblyProduct>
+        <CopyrightHolder>Brian Bennewitz</CopyrightHolder>
+
+        <!-- Map CI environment variables to the MSBuild properties the generator reads.
+             Replace $(GITHUB_SHA) / $(GITHUB_ACTIONS) with your CI provider's equivalents,
+             e.g. GitLab: $(CI_COMMIT_SHA) / $(GITLAB_CI), Bitbucket: $(BITBUCKET_COMMIT) / $(CI). -->
+        <CommitSha Condition="'$(CommitSha)' == ''">$(GITHUB_SHA)</CommitSha>
+        <IsContinuousIntegration>$(GITHUB_ACTIONS)</IsContinuousIntegration>
+    </PropertyGroup>
+
+    <!--
+      PDB policy — applies to all projects in the solution unless a project overrides.
+  
+      Debug:   portable PDB (separate .pdb file alongside the assembly).
+               Portable format is cross-platform and required for local source-stepping;
+               the separate file is expected and convenient in the debug output directory.
+  
+      Release: embedded PDB (debug info baked directly into the managed assembly).
+               The embedded format is the portable format inlined as a PE section;
+               no separate .pdb file is produced, so there are no loose symbol files
+               to exclude from zips or installers.  When PublishSingleFile bundles
+               an assembly into the single-file executable the embedded PDB travels
+               with it automatically — giving full symbols inside the shipped binary
+               with zero extra files.
+    -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <DebugType>portable</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugType>embedded</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+    </PropertyGroup>
+
+    <!-- AutoVersioning source generator — applies to every project in the solution.
+         Hoisted here because the previous per-csproj pattern duplicated the
+         identical PackageReference block across 13 projects (52 lines of noise).
+         The generator is gated by GenerateAutoVersionedAssemblyInfo=true above,
+         so it actually runs on every project; this single declaration is all
+         that's needed.
+
+         PrivateAssets="all" keeps the generator from flowing transitively to
+         consumers of any library this repo ships (it's a build-time tool, not
+         a runtime dependency).  IncludeAssets enumerates the asset types the
+         generator legitimately needs at build time. -->
+    <ItemGroup>
+        <PackageReference Include="Bennewitz.Ninja.AutoVersioning" Version="2026.2.522">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>
