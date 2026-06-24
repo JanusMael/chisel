@@ -124,7 +124,7 @@ To install your local build as a tool:
 
 ```bash
 dotnet pack src/Chisel.Cli -c Release -o ./nupkg
-dotnet tool install --global --add-source ./nupkg Bennewitz.Ninja.Chisel
+dotnet tool install --global --add-source ./nupkg --prerelease Bennewitz.Ninja.Chisel
 dotnet chisel --version
 ```
 

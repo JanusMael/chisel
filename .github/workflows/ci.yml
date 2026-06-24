@@ -74,8 +74,10 @@ jobs:
       - name: Pack (Release)
         run: dotnet pack src/Chisel.Cli/Chisel.Cli.csproj -c Release -o ./nupkg
 
+      # The local pack carries the 0.0.0-dev placeholder version (a prerelease), so --prerelease is
+      # required for `dotnet tool install` to consider it. Tagged releases publish a stable CalVer.
       - name: Install as a global tool
-        run: dotnet tool install --global --add-source ./nupkg Bennewitz.Ninja.Chisel
+        run: dotnet tool install --global --add-source ./nupkg --prerelease Bennewitz.Ninja.Chisel
 
       - name: Smoke-check (dotnet chisel --version)
         run: dotnet chisel --version
