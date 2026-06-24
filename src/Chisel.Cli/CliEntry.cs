@@ -492,11 +492,10 @@ internal static class CliEntry
             chisel — collect the C# files needed to compile a given type, across a solution
 
             Usage:
-              dotnet chisel --type <FQN> --solution <path.sln> --output <dir> [options]
+              dotnet chisel --type <FQN> --solution <path> --output <dir> [options]
 
             Required:
-              --type, -t <FQN>          Fully-qualified type name. In PowerShell, single-quote names
-                                          containing < > or a backtick, e.g. 'MyNS.Repository<T>'
+              --type, -t <FQN>          Fully-qualified type name (e.g. MyNS.IFoo or MyNS.Repository<T>)
               --solution, -s <path>     Path to the .sln / .slnx file
               --output, -o <dir>        Output directory (created if missing)
 
@@ -504,41 +503,29 @@ internal static class CliEntry
               --project <name>          Disambiguate when the FQN matches multiple projects
               --tfm <name>              Preferred target framework when projects multi-target
               --walk-depth <d>          signatures | bodies (default: signatures)
-                                          signatures = declared shape only (ignores method-body
-                                          usages); bodies = also follow body usages transitively
-                                          (self-compilable slice, but much larger)
               --expand-impls <s>        seed | all | none (default: seed)
               --no-derived              Alias for --expand-impls none
               --source-generators <p>   skip | materialize | reference (default: reference)
-                                          reference/skip = don't copy generated files; materialize =
-                                          write the generated code into the slice (self-contained)
-              --exclude, -x <path>      Directory subtree to drop from the slice (repeatable). Any
-                                          collected file under <path> is logged and left out — useful
-                                          for vendored/generated/out-of-scope regions. The slice may
-                                          then be incomplete; each drop is reported as a warning.
-              --exclude-from <file>     Read exclusion directories from a file, one path per line
-                                          (repeatable; merged with --exclude). Use '-' to read from
-                                          stdin (e.g. $paths | chisel --exclude-from -). Blank lines and
-                                          lines starting with '#' are ignored; relative paths resolve
-                                          against the file's directory (the working directory for stdin).
-              --allow-partial           Continue when MSBuild reports project load failures
-              --restore                 Run 'dotnet restore' on the solution before analyzing
-              --format <f>              text | json (default: text). json prints the run manifest to
-                                          stdout; result.json is always written to <output> regardless
-              --strict                  Exit nonzero (6) if any error-severity diagnostic occurred
+              --exclude, -x <path>      Drop a directory subtree from the slice (repeatable)
+              --exclude-from <file>     Read --exclude paths from a file; '-' reads stdin (repeatable)
+              --restore                 Run 'dotnet restore' on the solution first
+              --allow-partial           Continue when MSBuild reports project-load failures
+              --format <f>              text | json (default: text)
+              --strict                  Exit 6 if any error-severity diagnostic occurred
               --verbose, -v             List every diagnostic instead of grouping by stage
-              --quiet, -q               Console shows only warnings/errors (full run log still written)
-              --no-color                Disable ANSI colors (also honored via the NO_COLOR env var)
+              --quiet, -q               Console shows only warnings/errors (full log still written)
+              --no-color                Disable ANSI color (also honored via NO_COLOR)
               --version, -V             Print version and exit
               -h, --help                Show this help
 
-            Streams: progress/diagnostics go to stderr; the result (text summary or --format json)
-            goes to stdout. A timestamped copy of the whole run is written to <output>/chisel.log
-            (reset on each run); a machine-readable manifest to <output>/result.json (always).
+            PowerShell: single-quote generic type names, e.g. 'MyNS.Repository<T>'
+            Streams:    diagnostics/progress → stderr, result → stdout (text or --format json)
+            Artifacts:  always writes <output>/chisel.log (run log) and <output>/result.json (manifest)
 
-            Exit codes: 0 ok · 1 no args · 2 bad args · 3 type unresolved/ambiguous ·
-            4 workspace load failed · 5 solution not found · 6 errors (--strict) ·
-            7 no .NET SDK found · 130 canceled.
+            Exit codes: 0 ok · 1 no args · 2 bad args · 3 type unresolved/ambiguous · 4 workspace load failed
+                        5 solution not found · 6 errors (--strict) · 7 no .NET SDK · 130 canceled
             """);
+
+        Console.WriteLine();
     }
 }

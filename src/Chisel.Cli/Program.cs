@@ -1,10 +1,23 @@
 using System.Globalization;
+using System.Text;
 using Bennewitz.Ninja.Chisel.Cli;
 using Bennewitz.Ninja.Chisel.Workspace;
 
 // Locale-independent output (numbers in the summary/manifest parse the same everywhere).
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
+// Emit UTF-8 so the summary's arrows (→), middots, and em-dashes render on any UTF-8 terminal
+// regardless of the OS default console code page (Windows often defaults to cp1252, which can't
+// encode '→'). No BOM, so a redirected --format json stdout stays clean for parsers.
+try
+{
+    Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+}
+catch (Exception ex) when (ex is IOException or System.Security.SecurityException)
+{
+    // No console attached (fully redirected) or policy forbids it — keep the default encoding.
+}
 
 // --help / --version / no-args don't touch MSBuild, so answer them BEFORE the locator —
 // they must work even on a machine that has no .NET SDK installed.
