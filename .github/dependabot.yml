@@ -14,6 +14,18 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
+    ignore:
+      # MSBuild engine packages are pinned to track the installed .NET SDK (MSBuild 17.x) and are
+      # referenced with ExcludeAssets=runtime; a major bump (e.g. 18.x) breaks the build (MSBL001)
+      # and must be done deliberately alongside an SDK upgrade.
+      - dependency-name: "Microsoft.Build*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.NET.StringTools"
+        update-types: ["version-update:semver-major"]
+      # FluentAssertions 7+/8 require a paid commercial license; stay on the 6.x line.
+      - dependency-name: "FluentAssertions"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
