@@ -22,7 +22,7 @@
          MSBuildLocator. Direct references would conflict — exclude runtime assets and mark
          private so they don't propagate to consumers. Versions must match or exceed what
          Workspaces.MSBuild requests transitively (>= 17.11.48). -->
-    <PackageReference Include="Microsoft.Build" Version="17.13.9" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Build" Version="17.14.28" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Build.Framework" Version="17.14.28" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.14.28" ExcludeAssets="runtime" PrivateAssets="all" />
