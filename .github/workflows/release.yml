@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write          # create the GitHub Release + tag
+  id-token: write          # NuGet.org Trusted Publishing (OIDC) — see NuGet/login in the release job
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -135,7 +136,7 @@ jobs:
     needs: [version, pack, binaries]
     runs-on: ubuntu-latest
     env:
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      NUGET_USER: ${{ secrets.NUGET_USER }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
@@ -164,16 +165,29 @@ jobs:
             --title "chisel ${{ needs.version.outputs.version }}" \
             "${FLAGS[@]}" "${ASSETS[@]}"
 
-      # No-op (with a notice) until a NUGET_API_KEY secret is configured, so the rest of
+      # No-op (with a notice) until the NUGET_USER secret is configured, so the rest of
       # the release still succeeds before NuGet publishing is set up.
+      #
+      # NuGet Login exchanges this job's GitHub OIDC token for a short-lived NuGet.org API
+      # key — no long-lived NUGET_API_KEY secret to store or rotate. Requires a Trusted
+      # Publishing policy on nuget.org (owner/repo/workflow filename must match this job
+      # exactly) and the NUGET_USER repo secret set to the nuget.org account name tied to
+      # that policy.
+      - name: NuGet Login (Trusted Publishing)
+        if: ${{ env.NUGET_USER != '' }}
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ env.NUGET_USER }}
+
       - name: Push to NuGet.org
-        if: ${{ env.NUGET_API_KEY != '' }}
+        if: ${{ env.NUGET_USER != '' }}
         run: >
           dotnet nuget push "artifacts/*.nupkg"
-          --api-key "$NUGET_API_KEY"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
       - name: NuGet push skipped (no secret)
-        if: ${{ env.NUGET_API_KEY == '' }}
-        run: echo "::notice::NUGET_API_KEY secret not set — skipped pushing to NuGet.org. The .nupkg is attached to the GitHub Release."
+        if: ${{ env.NUGET_USER == '' }}
+        run: echo "::notice::NUGET_USER secret not set — skipped pushing to NuGet.org. The .nupkg is attached to the GitHub Release."
